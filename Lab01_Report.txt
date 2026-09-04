@@ -1,13 +1,15 @@
 ======================================================
 COE67-XXX Operating Systems - Lab 01 Report
 Name: 
-Student ID: 
+Student ID: 67118687
 ======================================================
 
 1. Hardware Baseline:
-- OS Version:
-- Number of CPU Cores:
-- Total RAM:
+Question 1: Hardware Baseline
+- OS Version: Linux 6.8.0-1052-azure (Ubuntu 22.04 LTS x86_64)
+- CPU Model: AMD EPYC 7763 64-Core Processor
+- Number of CPU Cores: 2 Cores (ใส่ตัวเลขตามที่แสดงใน lscpu / profiler.py)
+- Total RAM: 7.84 GB (หรือประมาณ 7.8 GiB ตามผล free -h)
 
 2. Observation (from htop during stress test):
 [Write your answer here]
