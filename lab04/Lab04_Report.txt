@@ -1,0 +1,43 @@
+======================================================
+COE67-222 Operating Systems - Lab 04 Report
+Name: Woraviriya Nuannok
+Student ID: [67118687]
+======================================================
+1. The Deadlock (Phase 2):
+In the `deadlock_simulation.py` script, explain step-by-step how the "Circular Wait" condition occurred between Model A and Model B.
+
+Answer:
+The Circular Wait condition occurred step-by-step as follows:
+1. Thread Model A executed first, requested `gpu_0_lock`, and successfully acquired GPU 0.
+2. Simultaneously, Thread Model B started, requested `gpu_1_lock`, and successfully acquired GPU 1.
+3. Model A encountered `time.sleep(0.1)`, which forced an OS context switch while it was still holding GPU 0.
+4. Model A attempted to acquire GPU 1 (`gpu_1_lock.acquire()`), but it was blocked because GPU 1 was already held by Model B.
+5. Model B attempted to acquire GPU 0 (`gpu_0_lock.acquire()`), but it was blocked because GPU 0 was already held by Model A.
+6. A circular dependency formed: Model A was holding GPU 0 and waiting for GPU 1, while Model B was holding GPU 1 and waiting for GPU 0. Neither thread could advance or release its held resource, causing an indefinite freeze (Deadlock) that required a manual interrupt (Ctrl + C).
+
+2. The Solution (Phase 3):
+By changing the code in `deadlock_avoidance.py` so that Model B also requests GPU 0 first, how did this specifically break the "Circular Wait" condition? 
+
+Answer:
+This solution enforces a strict Resource Hierarchy (Lock Ordering: GPU 0 must always be acquired before GPU 1). 
+By compelling both Model A and Model B to request GPU 0 first, Circular Wait is broken because:
+- Whichever thread wins the race to acquire `gpu_0_lock` (e.g., Model A) will proceed to acquire GPU 1.
+- The other thread (Model B) is blocked right at the start waiting for GPU 0, BEFORE it can acquire or hold GPU 1.
+- Because Model B does not hold GPU 1 while waiting for GPU 0, the "Hold and Wait" cycle cannot form a closed loop. Model A can acquire GPU 1 without contention, complete its work, and release both locks, allowing Model B to acquire GPU 0 and then GPU 1 sequentially.
+
+3. Starvation vs Deadlock (Phase 4):
+Based on the results from `starvation_sim.py`:
+- How is the final output of the Starvation script fundamentally different from the Deadlock script you ran in Phase 2?
+- In your own words, explain how a process scheduler could use a technique called "Aging" to help the `Polite_Model` get a fair share of CPU time.
+
+Answer:
+- Output Difference: In Phase 2 (Deadlock), the entire system froze completely, 0 progress was made by any thread, and the program never finished naturally. In Phase 4 (Starvation), the system remained active and completed within 3 seconds; progress was continuously made, but resources were allocated extremely unfairly (Greedy_Model_A: 24,754 times, Greedy_Model_B: 24,717 times, while Polite_Model received only 298 times). Deadlock is a total system freeze, whereas Starvation is indefinite unfair deprivation of a runnable thread.
+- How "Aging" Helps: The OS scheduler can maintain a dynamic priority level or wait counter for each thread. Every time a scheduling cycle occurs and a runnable thread (like `Polite_Model`) is bypassed while waiting, the scheduler increments its priority ("Aging"). As time passes, the waiting thread's priority eventually surpasses the priority of greedy threads, guaranteeing that the starved process gets scheduled and allocated the resource regardless of how aggressively greedy threads compete.
+
+4. Deadlock Detection & Recovery (Phase 5):
+- How did the `timeout` parameter simulate the Deadlock Detection mechanism of an Operating System?
+- When the Deadlock was detected, what exact step did Model A take to perform "Recovery" and allow the rest of the system to continue?
+
+Answer:
+- Simulation of Detection: The `timeout=TIMEOUT` (2.0 seconds) parameter in `gpu_1_lock.acquire(timeout=2.0)` acts like an OS Watchdog timer. Under normal execution, acquiring a lock takes fractions of a millisecond. If a thread remains blocked on a lock request exceeding the predetermined threshold (2.0 seconds), the OS watchdog infers that a circular wait / deadlock condition exists rather than normal latency, triggering the detection logic.
+- Recovery Step Taken: When the timeout expired (`acquired == False`), Model A executed resource preemption/rollback by calling `gpu_0_lock.release()` and terminating its current attempt (`return`). By giving up its hold on GPU 0, the circular wait chain was severed, allowing Model B (which was blocked waiting on GPU 0) to unblock, acquire GPU 0, complete its training task, and finish execution cleanly without a total system hang.

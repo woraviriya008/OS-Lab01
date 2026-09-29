@@ -1,0 +1,26 @@
+======================================================
+COE67-222 Operating Systems - Lab 02 Report
+Name: Woraviriya Nuannok
+Student ID: [67118687]
+======================================================
+1. Execution Time Comparison:
+- Sequential Time: 9.46 seconds
+- Multithreading Time: 9.90 seconds
+- Multiprocessing Time: 8.29 seconds
+
+2. System Observation (htop):
+- Multithreading:
+During multithreading execution, htop showed that CPU utilization remained restricted to essentially one core at 100% (or toggling between cores, maintaining total CPU load around 100%). Even though 16 threads were created, execution was serialized due to Python's internal lock.
+
+- Multiprocessing:
+During multiprocessing execution, htop clearly displayed ALL CPU cores spiking to 100% concurrently. The OS scheduler distributed the 16 independent processes across the available physical/logical cores, achieving true multi-core parallel execution and lowering total execution time.
+
+- Zombie Process Observation:
+In the fork experiment, after the child finished execution while the parent was sleeping without calling os.wait(), the child entered state 'Z' (Zombie) in htop. The process remains terminated but retains an entry in the OS process table until the parent reads its exit status. To fix this and prevent zombie accumulation, the parent process must explicitly call os.wait() or os.waitpid().
+
+3. Analysis (The GIL):
+- Why Multithreading Failed to Make Code Faster:
+Standard CPython enforces the Global Interpreter Lock (GIL), a mutex mechanism ensuring only one native thread executes Python bytecode at any given moment. For CPU-bound mathematical operations (such as data augmentation loops), threads constantly compete to acquire the GIL instead of performing parallel computation across cores. The added thread context-switching overhead caused multithreading (9.90s) to be slightly slower than sequential execution (9.46s).
+
+- Why Multiprocessing is Better for CPU-Bound Tasks:
+Multiprocessing circumvents the GIL by spawning distinct operating system processes. Each process maintains its own independent memory space, process ID, and dedicated Python interpreter instance with an isolated GIL. This allows the OS scheduler to truly execute processes simultaneously across all CPU cores (True Parallelism), making multiprocessing the optimal approach for heavy CPU-bound tasks like image preprocessing in Machine Learning pipelines.
