@@ -1,14 +1,37 @@
 ======================================================
 COE67-222 Operating Systems - Lab 06 Report
-Name: 
-Student ID: 
+Name: woaraviriya noulnok
+Student ID: 67118687
 ======================================================
 
 1. FIFO vs LRU (Phase 2):
 In the `page_replacement.py` script, why did the LRU algorithm perform better (have fewer page faults) than the FIFO algorithm for the given reference string? Explain how LRU decides which page to evict.
 
+Answer:
+- Why LRU Performed Better (7 vs 9 Page Faults):
+Real-world workloads and AI memory accesses exhibit strong Temporal Locality (pages referenced recently are very likely to be referenced again soon). In the given reference string [2, 3, 2, 1, 5, 2, 4, 5, 3, 2, 5, 2], page 2 is accessed repeatedly.
+FIFO operates purely on arrival order, evicting the oldest page regardless of its relevance. When page 5 arrived, FIFO evicted page 2 simply because it entered first, even though page 2 was actively being used. This caused an immediate page fault on the very next access of page 2.
+In contrast, LRU recognizes that page 2 was recently accessed, keeping it in memory and evicting older, unreferenced pages instead. This prevented unnecessary page faults and yielded 7 faults compared to 9 faults for FIFO.
+
+- How LRU Decides Which Page to Evict:
+LRU tracks the access recency of every page resident in physical frames. Whenever a page hit occurs, that page is refreshed to the most-recently-used position (end of list). When a page fault occurs and all physical frames are occupied, LRU selects the "victim" page that has not been referenced for the longest duration of time (the front of the list, least recently used).
+
 2. Understanding Thrashing (Phase 3):
 Based on your observation of `ai_thrashing.py`, define "Thrashing" in your own words. Why is the processing time significantly higher in Scenario 2?
 
+Answer:
+- Definition of Thrashing:
+Thrashing is a pathological state in an operating system where physical RAM is oversubscribed, causing the OS to spend more time performing paging/swapping I/O operations (moving pages between RAM and Disk/Swap) than executing actual program computation.
+
+- Why Processing Time is Significantly Higher in Scenario 2 (0.3948s vs 24.6986s, 63x Slower):
+Physical RAM is electronic semiconductor memory with access latency in nanoseconds. In Scenario 1, the entire working dataset resided in RAM, allowing the CPU to execute memory arithmetic directly with zero page faults (completing in ~0.39s).
+In Scenario 2, the memory footprint exceeded physical RAM capacity. The OS was forced to constantly swap memory blocks to and from the secondary storage disk (which operates at millisecond/microsecond latency). In our simulation of 10,000 iterations, repetitive disk write and read operations created an enormous I/O bottleneck, degrading performance by a factor of 63 (taking ~24.70s) while the CPU sat idle waiting on disk transfers.
+
 3. AI Engineering Decision:
 If you are training an AI model and your system begins to thrash because the RAM is full, lowering the `batch_size` in your Python code is a common solution. How does lowering the `batch_size` help the Operating System resolve the Thrashing problem?
+
+Answer:
+In OS Virtual Memory theory, a process requires a specific collection of pages currently in active use, known as its "Working Set". In AI model training, the Working Set consists of model parameters, optimizer states, input sample tensors, and intermediate forward-pass activation tensors for the current batch.
+
+- When batch_size is too large: The cumulative memory required by the activation tensors causes the process's Working Set size (W) to exceed total available physical RAM frames (M). Because W > M, the OS cannot keep all active data in physical memory simultaneously. Pages needed for backward propagation are swapped out to disk, only to be immediately demanded back on the next tensor operation, initiating continuous Thrashing.
+- How Lowering batch_size Resolves Thrashing: Decreasing the batch size proportionally reduces the dimension and memory footprint of input batches and intermediate activation maps. This contracts the process's Working Set until W <= M, allowing the entire active training batch to fit comfortably inside physical RAM. Once the Working Set fits in RAM, Page Faults drop to near-zero, disk swapping ceases completely, and the training pipeline returns to full hardware speed.

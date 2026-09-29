@@ -1,7 +1,7 @@
 ======================================================
 COE67-222 Operating Systems - Lab 10 Report (Final)
-Name: 
-Student ID: 
+Name: woaraviriya noulnok
+Student ID: 67118687
 ======================================================
 
 1. The Role of the Operating System:
@@ -9,17 +9,52 @@ In this mini-project, our Python script simulated the major responsibilities of 
 Match the specific code behavior in `ultimate_cluster_os.py` to the corresponding OS concept you learned throughout the semester:
 
 - File System & Permissions (Lab 9): 
-  [Explain which line of code simulated this and why Workload D failed]
+  * Code Simulation: Handled at lines 59–62 in `_execute_job`:
+    if not os.path.exists(dataset_path):
+        print(f"X [{job_name}] FAILED: Dataset '{dataset_path}' not found or Permission Denied.")
+        self.job_queue.task_done()
+        return
+  * Why Workload D Failed: Workload D attempted to access secret_keys.txt. The OS checked file system existence and access rights before granting execution. Because the file did not exist (or represented unauthorized access), the OS kernel immediately aborted the job and revoked resource allocation, exactly simulating POSIX file permissions and Discretionary Access Control (DAC) before any compute cycles were wasted.
 
 - Memory Management (Labs 5/6):
-  [Explain how the OS prevented Thrashing by using the `while` loop for RAM allocation]
+  * Code Simulation: Handled at lines 68–74 in `_execute_job`:
+    while True:
+        with self.ram_lock:
+            if self.available_ram_gb >= req_ram:
+                self.available_ram_gb -= req_ram
+                break
+        time.sleep(0.5)
+  * Preventing Thrashing: In Labs 5 and 6, we discovered that Thrashing occurs when total process Working Sets exceed physical RAM capacity (W > M), causing the OS to drown in continuous swap I/O. The while loop acts as an admission control / working-set governor. Under mutual exclusion (ram_lock), the OS forces incoming processes to wait in a blocked state until enough physical RAM is free (available_ram_gb >= req_ram). This strict ceiling guarantees that total active processes never oversubscribe physical RAM (never exceeding 64GB), keeping page fault rates near zero and preventing Thrashing.
 
 - Concurrency & Deadlocks (Labs 3/4):
-  [Explain how the OS sorted the requested GPUs to avoid Circular Wait deadlocks]
+  * Code Simulation: Handled at lines 78–83 in `_execute_job`:
+    sorted_gpus = sorted(req_gpus)
+    for gpu in sorted_gpus:
+        self.gpu_locks[gpu].acquire()
+  * Avoiding Deadlocks via Sorting: In Lab 4, Circular Wait occurs when Process 1 holds GPU 0 while waiting for GPU 1, and Process 2 holds GPU 1 while waiting for GPU 0. In ultimate_cluster_os.py, the OS enforces strict Resource Hierarchy (Global Lock Ordering) by sorting requested GPU IDs numerically (sorted([2, 1, 0]) -> [0, 1, 2]). Because all jobs must acquire GPU locks in strictly ascending numerical order (GPU 0 before 1, 1 before 2), a closed circular dependency cycle cannot form, mathematically guaranteeing freedom from Deadlock.
 
 2. Hardware Utilization:
 Look at the output of your Live Dashboard. Explain how the OS successfully ran Workload A (LLaMA Training), Workload B (Preprocessing), and Workload C (Inference) AT THE SAME TIME without crashing. Why didn't they block each other?
 
+Answer:
+The Live Dashboard demonstrated full concurrency without blocking or crashes due to two fundamental OS principles:
+1. Memory Isolation & Capacity Planning:
+   - Workload A requested 40GB RAM, Workload B requested 16GB RAM, and Workload C requested 2GB RAM.
+   - Cumulative RAM demand = 40 + 16 + 2 = 58GB, which safely fit inside the cluster's 64GB physical capacity.
+   - At peak concurrency, the dashboard reported RAM Available: 6/64 GB with 3 active jobs. Because memory demand never exceeded total capacity, no job was forced to wait or crash due to Out-Of-Memory (OOM).
+2. Orthogonal / Disjoint Hardware Resource Allocation:
+   - Workload A required GPUs [0, 1, 2].
+   - Workload B was CPU-bound and required 0 GPUs (req_gpus=[]), running purely on worker threads without competing for GPU locks.
+   - Workload C (Inference) required only 1 GPU and dynamically acquired the remaining idle accelerator (GPU 3).
+Because each job's hardware requirements were completely non-overlapping (orthogonal), no thread contested another's locks. The OS scheduler dispatched all three workloads in parallel, saturating both CPU and all 4 GPUs simultaneously with 100% hardware efficiency.
+
 3. Course Reflection (AI Engineering Context):
 You are now applying for a role as a Machine Learning Operations (MLOps) Engineer. 
 Write a short paragraph explaining how understanding Operating Systems (Process queues, RAM/Virtual Memory limits, Deadlock avoidance, File systems) gives you an advantage over a programmer who only knows how to write basic Python/PyTorch scripts.
+
+Answer:
+While a traditional AI programmer only knows how to define neural network layers and run .forward() loops in PyTorch, an MLOps Engineer must scale, orchestrate, and stabilize production workloads across distributed enterprise clusters (Kubernetes, Slurm, Ray). A rigorous understanding of Operating Systems provides an immense technical advantage:
+1. Memory Architecture: Understanding Paging, Virtual Memory limits, and mmap allows me to optimize tensor loaders, eliminate Out-Of-Memory (OOM) fatal errors, configure PagedAttention/vLLM for serving, and tune batch sizes to prevent crippling storage Thrashing.
+2. Concurrency & Synchronization: Knowledge of Process Queues, the CPython GIL, Multiprocessing, and Lock Ordering enables me to architect high-throughput Distributed Data Parallel (DDP) pipelines that are mathematically immune to Deadlocks and Race Conditions.
+3. I/O & Storage Systems: Knowing how Inodes, system calls, and page caches operate enables me to replace inefficient multi-file datasets with sequential binary containers (TFRecord, WebDataset), completely eradicating GPU Starvation and maximizing multimillion-dollar hardware ROI.
+Ultimately, OS mastery bridges the gap between theoretical machine learning code and scalable, bulletproof production infrastructure.

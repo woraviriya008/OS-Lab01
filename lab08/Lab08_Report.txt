@@ -1,14 +1,47 @@
 ======================================================
 COE67-222 Operating Systems - Lab 08 Report
-Name: 
-Student ID: 
+Name: woaraviriya noulnok
+Student ID: 67118687
 ======================================================
 
 1. Disk Scheduling (Phase 2):
 Looking at the output of `disk_scheduler.py`, why did the SCAN algorithm result in a significantly lower "Total Head Movement" compared to FCFS? Explain the logic behind the Elevator behavior.
 
+Answer:
+- Comparison of Head Movement:
+In our simulation, FCFS required 640 cylinders of head movement, whereas SCAN required only 331 cylinders (a reduction of nearly 50%).
+- Why FCFS is Inefficient:
+FCFS services I/O requests strictly in the arbitrary order they arrive:
+  Path: 53 -> 98 -> 183 -> 37 -> 122 -> 14 -> 124 -> 65 -> 67
+This causes severe, erratic oscillation. The read/write head is forced to swing wildly back and forth across outer and inner tracks (e.g., from cylinder 183 all the way down to 37, then back up to 122, then back down to 14). This back-and-forth thrashing incurs immense mechanical seek-time penalty.
+- The Logic of the Elevator (SCAN) Behavior:
+SCAN works identically to a passenger elevator in a building: it commits to moving in one continuous direction (e.g., sweeping upwards from 53 toward the outer boundary 199), servicing all pending requests situated along that path in ascending order (53 -> 65 -> 67 -> 98 -> 122 -> 124 -> 183 -> 199). Once it reaches the end cylinder, it reverses direction and sweeps downwards, servicing the remaining requests in descending order (37 -> 14).
+By ordering cylinder traversal monotonically along its path, SCAN eliminates redundant zig-zag movements, drastically shortening cumulative seek distance and providing predictable response times.
+
 2. I/O Bound Concept:
 If an Operating System is described as being "I/O Bound" during a task, what does that actually mean for the CPU? Is the CPU at 100% usage or is it mostly idle? Why?
 
+Answer:
+- What "I/O Bound" Means:
+An I/O Bound workload is a scenario where system throughput and execution speed are strictly bottlenecked by the speed and latency of input/output hardware (such as disk storage, network interfaces, or system buses) rather than processor compute capacity.
+- CPU State (100% vs. Mostly Idle):
+During an I/O Bound task, the CPU is MOSTLY IDLE (CPU utilization is very low, accompanied by a prominent %iowait state).
+- Why:
+Storage devices (especially mechanical HDDs and even NVMe SSDs) operate at latencies thousands to millions of times slower than CPU clock cycles. When a thread issues a system call to read or write data (e.g., read() or write()), the OS kernel moves the calling process out of the CPU's Running state and places it into an Uninterruptible Sleep / Blocked state waiting in the device wait queue. The OS uses Direct Memory Access (DMA) to transfer the data into RAM. Until the I/O transfer completes and triggers a hardware interrupt, the CPU has no instructions to execute for this process and enters the idle thread.
+
 3. AI Industry Connection (Phase 3):
 Explain why storing an AI image dataset as 1,000,000 separate `.jpg` files causes high I/O overhead and GPU starvation compared to packing them into a single sequential binary format (e.g., TFRecord, WebDataset, or HDF5).
+
+Answer:
+In our benchmark (`ai_dataset_io.py`), reading 1,000 individual small files took 1.4059 seconds, while reading the identical data packed sequentially in 1 file took only 0.0139 seconds—making the packed sequential format over 100 times faster.
+
+- Why 1,000,000 Separate Files Causes Extreme Overhead:
+1. System Call & Context Switch Storm: Every individual file requires a dedicated POSIX lifecycle (open(), stat(), read(), and close()). For 1,000,000 files, this triggers at least 4,000,000 system calls, creating severe kernel-to-user space context-switching overhead.
+2. File System Inode & Metadata Lookups: For each file, the OS file system must traverse directory trees and resolve inode metadata (file permissions, timestamps, block pointers). This produces millions of random, scattered disk reads just to discover where the file contents are stored.
+3. Non-Contiguous Storage Blocks: Small files are typically scattered across non-contiguous clusters across the storage medium, defeating the OS page cache's sequential readahead optimization.
+
+- The Cause of GPU Starvation:
+Modern AI accelerators (NVIDIA GPUs, TPUs) contain thousands of parallel Tensor Cores capable of computing matrix operations on thousands of images per second. When the storage subsystem is choked by file-open system calls and random inode lookups, the CPU data loader pipeline cannot stream batches fast enough to keep up with GPU compute capacity. The GPU finishes its forward/backward pass in milliseconds and then sits idle at 0% utilization waiting for the next batch from the slow disk.
+
+- How Packed Formats (TFRecord, WebDataset, HDF5) Solve the Problem:
+By packing images into large, continuous binary containers, the application performs a single file open() and reads data in large, contiguous sequential blocks. The OS file system reads data smoothly using DMA and large-scale page cache readahead with zero metadata lookup overhead, saturating the PCIe bus and feeding the GPU at full bandwidth.

@@ -1,16 +1,45 @@
 ======================================================
 COE67-222 Operating Systems - Lab 07 Report
-Name: 
-Student ID: 
+Name: woaraviriya noulnok
+Student ID: 67118687
 ======================================================
 
 1. The Convoy Effect (Phase 2):
 In the FCFS output of `cpu_scheduler.py`, what is the "Convoy Effect"? How did the presence of Process P1 affect the waiting times of P2 and P3?
+
+Answer:
+- The Convoy Effect:
+The Convoy Effect is a major drawback of non-preemptive scheduling (such as FCFS) where a queue of short, fast processes is forced to wait behind a single massive, CPU-bound process. It is analogous to a line of fast passenger vehicles trapped behind a slow-moving heavy truck on a single-lane highway.
+
+- Impact of Process P1 on P2 and P3:
+In our simulation, Process P1 had a heavy CPU burst time of 10 units, while P2 and P3 were tiny tasks needing only 2 and 3 units respectively.
+Because P1 arrived first in FCFS, it monopolized the CPU for the first 10 time units:
+  * Process P2 had to wait 10 units (5 times its own runtime!) just to run for 2 units.
+  * Process P3 had to wait 12 units (4 times its own runtime!) just to run for 3 units.
+This inflated the FCFS Average Waiting Time to 7.33 units and Average Turnaround Time to 12.33 units.
+In contrast, when Round Robin (Quantum = 3) was introduced, P2 finished at Time 05 (wait time = 3) and P3 finished at Time 08 (wait time = 5), drastically slashing the Average Waiting Time to 4.33 units and Average Turnaround Time to 9.33 units.
 
 2. Choosing the Time Quantum:
 In Round Robin, the Time Quantum is critical. 
 - What happens if the OS sets the Time Quantum extremely large (e.g., Quantum = 100)? Which algorithm does RR start to behave like?
 - What happens if the OS sets the Time Quantum extremely small (e.g., Quantum = 0.0001)? (Hint: Think about Context Switching overhead).
 
+Answer:
+- Extremely Large Quantum (e.g., Quantum = 100):
+If the time quantum is significantly larger than the CPU burst time of the longest running process, every process in the ready queue will finish its entire computation within its very first time slice before the timer interrupt ever fires. As a result, no preemption ever occurs, and Round Robin degrades completely into First-Come, First-Served (FCFS), re-introducing the Convoy Effect and destroying system responsiveness for interactive tasks.
+
+- Extremely Small Quantum (e.g., Quantum = 0.0001):
+Whenever the OS switches execution from one process to another, it must perform a Context Switch (saving current CPU registers and program counter into the PCB, reloading the next process's state, flushing/invalidating CPU caches and TLB entries). Context switching is pure OS overhead during which no actual user work is performed. If the quantum is set extremely small, the CPU spends virtually all its clock cycles performing repetitive context switches rather than executing application code. Overall system throughput collapses, and the system suffers from severe dispatch latency overhead.
+
 3. AI Context:
 In Phase 3, we used a Round Robin approach for generating tokens in an LLM. Explain why iteration-level Round Robin scheduling prevents long user queries from starving short queries, and how it improves perceived latency (Time To First Token / TTFT) for interactive AI applications.
+
+Answer:
+In modern Large Language Model (LLM) serving, inference operates autoregressively on a token-by-token basis (each forward pass generates exactly one token per sequence).
+
+- Preventing Starvation:
+Under an FCFS strategy, if User A submits a request demanding a long essay (e.g., 10 or hundreds of tokens), User A's job locks up the GPU generation loop entirely. A subsequent User B who submits a trivial query needing only 2 tokens is completely starved, waiting for User A's long generation to finish.
+Under iteration-level Round Robin (Continuous Batching), the engine treats each single token generation step as one Time Quantum (Quantum = 1 Token). The scheduler interleaves generation across all active sequences in each iteration. As seen in our simulation, User B's math request completed in just 2 iterations without waiting for User A's 10 tokens to finish, completely preventing query starvation.
+
+- Improving Perceived Latency (Time To First Token / TTFT):
+In interactive AI applications (like streaming chatbots or autocomplete), user experience depends primarily on Time To First Token (TTFT)—how quickly the user sees the initial text appear on their screen. With Round Robin scheduling, every active request is guaranteed a token generation turn within the very first scheduling round. All users receive their first token almost instantaneously, creating a responsive, real-time feel rather than forcing users to stare at an idle loading indicator while preceding requests finish.

@@ -1,7 +1,7 @@
 ======================================================
 COE67-222 Operating Systems - Lab 05 Report
-Name: 
-Student ID: 
+Name: woaraviriya noulnok
+Student ID: 67118687
 ======================================================
 1. Address Translation Math (Phase 3):
 Assume an OS has a PAGE_SIZE of 4096 bytes. 

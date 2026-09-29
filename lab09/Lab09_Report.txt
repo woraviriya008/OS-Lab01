@@ -1,14 +1,46 @@
 ======================================================
 COE67-222 Operating Systems - Lab 09 Report
-Name: 
-Student ID: 
+Name: woaraviriya noulnok
+Student ID: 67118687
 ======================================================
 
 1. Inodes and Metadata:
 In the `inode_inspector.py` script, we printed the "Inode Number". If you rename the file using the Linux `mv` command, will the Inode Number change? Why or why not? (Hint: Think about how the OS separates the file name from the actual data).
 
+Answer:
+- Will the Inode Number change?:
+No, the Inode Number will NOT change.
+
+- Why:
+In Unix/Linux file systems (e.g., ext4), the operating system strictly decouples the human-readable file name from the file's actual data and metadata:
+1. What an Inode is: An Inode (Index Node) represents the physical identity of a file. It stores all metadata (file size, permissions, owner UID, timestamps, and direct/indirect pointers to physical disk blocks). Crucially, the Inode does NOT contain the filename.
+2. What a Directory is: A directory is simply a special file that acts as an index table mapping filename strings to their corresponding Inode numbers (filename -> inode_number).
+3. Renaming Mechanism: When running the `mv old_name new_name` command on the same filesystem, the OS merely updates the text entry in the directory table—unlinking the old name and creating a new name entry that points to the exact same Inode number. No data blocks are moved, and the Inode itself remains completely unchanged.
+
 2. POSIX Permissions:
 If you want to set a file's permission so that the Owner has Read/Write/Execute (7), the Group has Read/Execute (5), and Others have absolutely no access (0), what would be the 3-digit octal number you pass into `os.chmod()`? 
 
+Answer:
+The 3-digit octal number is: 750 (represented in Python as 0o750).
+
+Breakdown:
+- Owner (User):  Read (4) + Write (2) + Execute (1) = 7 (rwx)
+- Group:         Read (4) + Write (0) + Execute (1) = 5 (r-x)
+- Others:        Read (0) + Write (0) + Execute (0) = 0 (---)
+Python syntax: os.chmod("filename", 0o750)
+
 3. The AI Context:
 Why is it safer to rely on Operating System file permissions (like `os.chmod(0o444)`) to protect production model weights rather than relying solely on application-level logic or Python try-except blocks?
+
+Answer:
+1. Kernel-Level Hardware Enforcement (Ring 0 vs. Ring 3):
+Operating System file permissions are enforced by the OS Kernel running in privileged CPU Kernel Mode (Ring 0). When any application invokes open(file, 'w'), it triggers a system call (sys_open). The kernel inspects the file's Inode permissions against the process's effective credentials before touching the disk. If permission is denied, the OS kernel immediately halts the operation with EACCES / Permission denied. It is impossible for user-space application code to bypass this hardware-backed security boundary.
+
+2. Language- and Process-Agnostic Protection:
+Application-level logic (such as try-except blocks, if-else safeguards, or read-only flags in Python) only protects within that specific script. It provides zero security if:
+- A developer runs an alternative training script, a shell command (> model.pth), a C++/Rust binary, or a Jupyter notebook that lacks those checks.
+- A bug or typo in the code accidentally opens the file in write mode (open(weight_file, "w")), as demonstrated in ai_weight_protection.py.
+- An external dependency or third-party library attempts an unauthorized write or cache overwrite.
+
+3. Safeguarding High-Value Assets:
+Training modern production AI models costs millions of dollars in GPU compute and weeks of training time. Locking model weights at the OS level using os.chmod(weight_file, 0o444) (Read-Only for Everyone) guarantees asset immutability system-wide, guaranteeing that no accidental script error or developer oversight can overwrite or corrupt the weights.
