@@ -1,8 +1,11 @@
+<<<<<<< HEAD
 # ==========================================
 # OS-Lab 01: System Profiler
 # Student ID: [67118687]
 # ==========================================
-import os
+=======
+>>>>>>> origin/main
+import os           
 import psutil
 import platform
 
