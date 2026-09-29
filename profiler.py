@@ -1,6 +1,6 @@
 # ==========================================
 # OS-Lab 01: System Profiler
-# Student ID: [Enter your ID here]
+# Student ID: [67118687]
 # ==========================================
 import os
 import platform

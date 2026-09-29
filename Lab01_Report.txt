@@ -1,7 +1,7 @@
 ======================================================
 COE67-XXX Operating Systems - Lab 01 Report
-Name: 
-Student ID: 
+Name: Woraviriya Noulnok
+Student ID: 67118687
 ======================================================
 
 1. Hardware Baseline:
